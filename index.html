@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="https://unpkg.com/htmx-ext-client-side-templates@2.0.0/client-side-templates.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/nunjucks/3.2.4/nunjucks.min.js"></script>
+  <script src="https://unpkg.com/hyperscript.org@0.9.14"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -21,11 +22,21 @@
     h1 { margin: 0 0 4px; font-size: 26px; }
     .lead { margin: 0 0 20px; color: #59636e; }
 
+    .bar { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; }
+    .bar input {
+      flex: 1; max-width: 360px; padding: 9px 12px; font: inherit;
+      border: 1px solid #d8dee4; border-radius: 8px; background: #fff;
+    }
+    .bar input:focus { outline: 2px solid #0969da; outline-offset: -1px; }
+    .bar span { color: #59636e; font-size: 14px; }
+
     #users { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
     .card {
       background: #fff; border: 1px solid #d8dee4; border-radius: 10px; padding: 14px;
-      display: flex; gap: 12px; align-items: center;
+      display: flex; gap: 12px; align-items: center; cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
     }
+    .card:hover { border-color: #0969da; box-shadow: 0 2px 8px rgba(9, 105, 218, .12); }
     .card img { width: 56px; height: 56px; border-radius: 50%; background: #eef1f4; flex: none; }
     .card b { display: block; }
     .card small { display: block; color: #59636e; font-size: 13px; overflow-wrap: anywhere; }
@@ -33,6 +44,27 @@
 
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
+
+    /* Окно профиля */
+    #profile:empty { display: none; }
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, .4);
+      display: grid; place-items: center; padding: 16px;
+    }
+    .box {
+      background: #fff; border-radius: 12px; padding: 20px; width: min(480px, 100%);
+      max-height: 90vh; overflow: auto;
+    }
+    .box header { display: flex; gap: 14px; align-items: center; }
+    .box header img { width: 72px; height: 72px; border-radius: 50%; background: #eef1f4; }
+    .box h2 { margin: 0; font-size: 20px; }
+    .box dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 16px 0 0; font-size: 14px; }
+    .box dt { color: #59636e; }
+    .box dd { margin: 0; overflow-wrap: anywhere; }
+    .close {
+      margin-left: auto; align-self: flex-start; border: 0; background: none;
+      font-size: 24px; line-height: 1; cursor: pointer; color: #59636e;
+    }
   </style>
 </head>
 
@@ -40,6 +72,15 @@
   <div class="wrap">
     <h1>Пользователи</h1>
     <p class="lead">Данные с dummyjson.com/users, загруженные через htmx без собственного JavaScript</p>
+
+    <!-- Поиск во время ввода, с задержкой 400 мс -->
+    <div class="bar">
+      <input type="search" name="q" placeholder="Поиск по имени…"
+             hx-get="https://dummyjson.com/users/search?select=id,firstName,lastName,email,image,address,company"
+             hx-trigger="input changed delay:400ms, search"
+             hx-target="#users" hx-indicator="#loading" nunjucks-template="found">
+      <span id="loading" class="htmx-indicator">Поиск…</span>
+    </div>
 
     <!-- Первая порция загружается сразу при открытии страницы -->
     <main id="users"
@@ -49,11 +90,15 @@
     </main>
   </div>
 
-  <!-- Шаблон Nunjucks: JSON от dummyjson превращается в HTML-карточки.
-       Последний элемент сам подгружает следующую порцию, когда виден на экране. -->
+  <!-- Сюда вставляется профиль; Esc закрывает его -->
+  <div id="profile" _="on keydown[key is 'Escape'] from window put '' into me"></div>
+
+  <!-- ===== Шаблоны Nunjucks: JSON от dummyjson превращается в HTML ===== -->
+
+  <!-- Порция списка. Последний элемент сам подгружает следующую порцию, когда виден на экране -->
   <script type="text/template" id="list">
     {% for u in users %}
-      <article class="card">
+      <article class="card" hx-get="https://dummyjson.com/users/{{ u.id }}" hx-target="#profile" nunjucks-template="profile">
         <img src="{{ u.image }}" alt="" loading="lazy">
         <div>
           <b>{{ u.firstName }} {{ u.lastName }}</b>
@@ -69,6 +114,46 @@
     {% else %}
       <p class="note">Показаны все пользователи: {{ total }}</p>
     {% endif %}
+  </script>
+
+  <!-- Результаты поиска -->
+  <script type="text/template" id="found">
+    {% for u in users %}
+      <article class="card" hx-get="https://dummyjson.com/users/{{ u.id }}" hx-target="#profile" nunjucks-template="profile">
+        <img src="{{ u.image }}" alt="" loading="lazy">
+        <div>
+          <b>{{ u.firstName }} {{ u.lastName }}</b>
+          <small>{{ u.email }}</small>
+          <small>{{ u.address.city }} · {{ u.company.name }}</small>
+        </div>
+      </article>
+    {% else %}
+      <p class="note">Никого не нашлось</p>
+    {% endfor %}
+  </script>
+
+  <!-- Профиль пользователя -->
+  <script type="text/template" id="profile">
+    <div class="overlay" _="on click[target is me] put '' into #profile">
+      <section class="box">
+        <header>
+          <img src="{{ image }}" alt="">
+          <div>
+            <h2>{{ firstName }} {{ lastName }}</h2>
+            <div>{{ company.title }}, {{ company.name }}</div>
+          </div>
+          <button class="close" title="Закрыть" _="on click put '' into #profile">×</button>
+        </header>
+        <dl>
+          <dt>Возраст</dt><dd>{{ age }}</dd>
+          <dt>Email</dt><dd>{{ email }}</dd>
+          <dt>Телефон</dt><dd>{{ phone }}</dd>
+          <dt>Адрес</dt><dd>{{ address.address }}, {{ address.city }}, {{ address.country }}</dd>
+          <dt>Отдел</dt><dd>{{ company.department }}</dd>
+          <dt>Университет</dt><dd>{{ university }}</dd>
+        </dl>
+      </section>
+    </div>
   </script>
 </body>
 </html>
