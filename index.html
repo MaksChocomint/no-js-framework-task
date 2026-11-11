@@ -98,7 +98,7 @@
   <!-- Порция списка. Последний элемент сам подгружает следующую порцию, когда виден на экране -->
   <script type="text/template" id="list">
     {% for u in users %}
-      <article class="card" hx-get="https://dummyjson.com/users/{{ u.id }}" hx-target="#profile" nunjucks-template="profile">
+      <article class="card" hx-get="https://dummyjson.com/users/{{ u.id }}" hx-target="#profile" nunjucks-template="profile-tpl">
         <img src="{{ u.image }}" alt="" loading="lazy">
         <div>
           <b>{{ u.firstName }} {{ u.lastName }}</b>
@@ -119,7 +119,7 @@
   <!-- Результаты поиска -->
   <script type="text/template" id="found">
     {% for u in users %}
-      <article class="card" hx-get="https://dummyjson.com/users/{{ u.id }}" hx-target="#profile" nunjucks-template="profile">
+      <article class="card" hx-get="https://dummyjson.com/users/{{ u.id }}" hx-target="#profile" nunjucks-template="profile-tpl">
         <img src="{{ u.image }}" alt="" loading="lazy">
         <div>
           <b>{{ u.firstName }} {{ u.lastName }}</b>
@@ -133,7 +133,7 @@
   </script>
 
   <!-- Профиль пользователя -->
-  <script type="text/template" id="profile">
+  <script type="text/template" id="profile-tpl">
     <div class="overlay" _="on click[target is me] put '' into #profile">
       <section class="box">
         <header>
