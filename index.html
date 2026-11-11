@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Пользователи dummyjson · htmx</title>
+  <!-- htmx 2 по умолчанию не делает запросы на чужие домены -->
+  <meta name="htmx-config" content='{"selfRequestsOnly": false}'>
+
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://unpkg.com/htmx-ext-client-side-templates@2.0.0/client-side-templates.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nunjucks/3.2.4/nunjucks.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #f5f6f8; color: #1f2328;
+    }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { margin: 0 0 4px; font-size: 26px; }
+    .lead { margin: 0 0 20px; color: #59636e; }
+
+    #users { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .card {
+      background: #fff; border: 1px solid #d8dee4; border-radius: 10px; padding: 14px;
+      display: flex; gap: 12px; align-items: center;
+    }
+    .card img { width: 56px; height: 56px; border-radius: 50%; background: #eef1f4; flex: none; }
+    .card b { display: block; }
+    .card small { display: block; color: #59636e; font-size: 13px; overflow-wrap: anywhere; }
+    .note { grid-column: 1 / -1; text-align: center; color: #59636e; padding: 16px; }
+
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
+  </style>
+</head>
+
+<body hx-ext="client-side-templates">
+  <div class="wrap">
+    <h1>Пользователи</h1>
+    <p class="lead">Данные с dummyjson.com/users, загруженные через htmx без собственного JavaScript</p>
+
+    <!-- Первая порция загружается сразу при открытии страницы -->
+    <main id="users"
+          hx-get="https://dummyjson.com/users?limit=12&amp;select=id,firstName,lastName,email,image,address,company"
+          hx-trigger="load" nunjucks-template="list">
+      <p class="note">Загрузка…</p>
+    </main>
+  </div>
+
+  <!-- Шаблон Nunjucks: JSON от dummyjson превращается в HTML-карточки.
+       Последний элемент сам подгружает следующую порцию, когда виден на экране. -->
+  <script type="text/template" id="list">
+    {% for u in users %}
+      <article class="card">
+        <img src="{{ u.image }}" alt="" loading="lazy">
+        <div>
+          <b>{{ u.firstName }} {{ u.lastName }}</b>
+          <small>{{ u.email }}</small>
+          <small>{{ u.address.city }} · {{ u.company.name }}</small>
+        </div>
+      </article>
+    {% endfor %}
+    {% if skip + limit < total %}
+      <p class="note"
+         hx-get="https://dummyjson.com/users?limit=12&amp;skip={{ skip + limit }}&amp;select=id,firstName,lastName,email,image,address,company"
+         hx-trigger="revealed" hx-swap="outerHTML" nunjucks-template="list">Загрузка…</p>
+    {% else %}
+      <p class="note">Показаны все пользователи: {{ total }}</p>
+    {% endif %}
+  </script>
+</body>
+</html>
